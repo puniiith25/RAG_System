@@ -4,13 +4,16 @@ from services.text_splitter import split_text
 from services.embedding import create_embeddings
 from services.vector_store import Vector_Store
 from pydantic import BaseModel
-import ollama
+from google import genai
+from dotenv import load_dotenv
 import os
 
-
+load_dotenv()
+client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
+)
 app = FastAPI()
 vector_store = Vector_Store()
-
 # To Store a User Uploaded File in this Uploads Folder Directory
 UPLOAD_DIR="Uploads"
 os.makedirs(UPLOAD_DIR,exist_ok=True)
@@ -76,27 +79,14 @@ def generate_answers(question,results):
     USER QUESTION:
     {question}
     """
-
-
-    response = ollama.chat(
-
-        model="llama3.2",
-
-        messages=[
-
-            {
-
-                "role": "user",
-
-                "content": prompt
-
-            }
-
-        ]
-
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt
     )
+    return response.text
 
-    return response["message"]["content"]
+
+
 
 @app.post('/search')
 def search_pdf(request:QuestionRequest):
