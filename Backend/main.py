@@ -1,4 +1,5 @@
 from fastapi import  FastAPI ,UploadFile ,File , HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pypdf import PdfReader
 from services.text_splitter import split_text
 from services.embedding import create_embeddings
@@ -7,7 +8,9 @@ from services.DataBase import (
     create_document,
     get_document_by_hash,
     save_chunks,
-    search_chunks
+    search_chunks,
+    get_all_documents,
+    delete_document
 )
 import hashlib
 from pydantic import BaseModel
@@ -21,10 +24,18 @@ client = genai.Client(
 )
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/")
 def Healt():
-    return {"Message:RAG System API is Working"}
+    return {"message": "RAG System API is Working"}
 
 
 @app.on_event("startup")
@@ -172,3 +183,28 @@ def search_pdf(request: QuestionRequest):
         "answer": answer,
         "sources": results
     }
+
+
+@app.get("/documents")
+def list_documents():
+    try:
+        docs = get_all_documents()
+        return [
+            {
+                "id": str(doc[0]),
+                "filename": doc[1],
+                "created_at": doc[2].isoformat() if doc[2] else None
+            }
+            for doc in docs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/documents/{document_id}")
+def remove_document(document_id: str):
+    try:
+        delete_document(document_id)
+        return {"message": "Document deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

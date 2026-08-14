@@ -173,3 +173,37 @@ def search_chunks(query_embedding, top_k=5):
             rows = cur.fetchall()
 
     return rows
+
+
+def get_all_documents():
+
+    with DB_Connection() as conn:
+
+        with conn.cursor() as cur:
+
+            cur.execute(
+                """
+                SELECT id, filename, created_at
+                FROM documents
+                ORDER BY created_at DESC
+                """
+            )
+
+            return cur.fetchall()
+
+
+def delete_document(document_id):
+
+    with DB_Connection() as conn:
+
+        with conn.cursor() as cur:
+
+            cur.execute(
+                """
+                DELETE FROM documents
+                WHERE id = %s
+                """,
+                (document_id,)
+            )
+
+            conn.commit()
