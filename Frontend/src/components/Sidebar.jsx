@@ -1,5 +1,38 @@
 import React from 'react';
-import { Cpu, UploadCloud, FileText, Trash2 } from 'lucide-react';
+import { Cpu, UploadCloud, FileText, Trash2, MessageSquare, Plus } from 'lucide-react';
+
+const groupSessionsByDate = (sessions) => {
+  const groups = {};
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  sessions.forEach(sess => {
+    if (!sess.created_at) return;
+    const sessDate = new Date(sess.created_at);
+    let groupKey = "";
+
+    if (sessDate.toDateString() === today.toDateString()) {
+      groupKey = "Today";
+    } else if (sessDate.toDateString() === yesterday.toDateString()) {
+      groupKey = "Yesterday";
+    } else {
+      groupKey = sessDate.toLocaleDateString([], {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+
+    if (!groups[groupKey]) {
+      groups[groupKey] = [];
+    }
+    groups[groupKey].push(sess);
+  });
+
+  return groups;
+};
 
 export default function Sidebar({
   backendOnline,
@@ -11,8 +44,15 @@ export default function Sidebar({
   handleDrag,
   handleDrop,
   handleUpload,
-  handleDelete
+  handleDelete,
+  sessions = [],
+  currentSessionId,
+  handleSelectSession,
+  handleDeleteSession,
+  handleNewChat
 }) {
+  const groupedSessions = groupSessionsByDate(sessions);
+
   return (
     <aside className="w-80 min-w-[20rem] h-full bg-bg-sidebar backdrop-blur-md border-r border-white/5 flex flex-col z-10">
       <div className="p-6 border-b border-white/5">
@@ -90,11 +130,11 @@ export default function Sidebar({
         </div>
 
         {/* Uploaded Documents List */}
-        <div className="flex flex-col gap-3 flex-1">
+        <div className="flex flex-col gap-3">
           <div className="text-[10px] uppercase tracking-wider text-text-muted font-bold mb-1">
             Knowledge Library ({documents.length})
           </div>
-          <div className="flex flex-col gap-2 overflow-y-auto max-h-[17.5rem] pr-0.5">
+          <div className="flex flex-col gap-2 overflow-y-auto max-h-[10rem] pr-0.5">
             {documents.length === 0 ? (
               <div className="text-xs text-text-muted text-center p-4 border border-dashed border-white/5 rounded-lg">
                 No documents uploaded. Add a PDF to query the database.
@@ -123,6 +163,66 @@ export default function Sidebar({
                   >
                     <Trash2 size={14} />
                   </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Chat History List */}
+        <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[10px] uppercase tracking-wider text-text-muted font-bold">
+              Chat History
+            </div>
+            <button
+              onClick={handleNewChat}
+              className="flex items-center gap-1 text-[10px] bg-accent-primary/10 hover:bg-accent-primary/20 text-accent-primary font-semibold px-2 py-1 rounded border border-accent-primary/20 cursor-pointer transition-all"
+              title="Start a new conversation"
+            >
+              <Plus size={11} />
+              <span>New Chat</span>
+            </button>
+          </div>
+          <div className="flex flex-col gap-3 overflow-y-auto max-h-[16rem] pr-0.5">
+            {sessions.length === 0 ? (
+              <div className="text-xs text-text-muted text-center p-4 border border-dashed border-white/5 rounded-lg">
+                No past conversations.
+              </div>
+            ) : (
+              Object.keys(groupedSessions).map(groupName => (
+                <div key={groupName} className="flex flex-col gap-1.5">
+                  <div className="text-[9px] font-bold text-text-muted tracking-wider uppercase pl-1">
+                    {groupName}
+                  </div>
+                  {groupedSessions[groupName].map((sess) => (
+                    <div
+                      key={sess.id}
+                      onClick={() => handleSelectSession(sess.id)}
+                      className={`flex items-center justify-between p-2.5 px-3 rounded-lg border cursor-pointer transition-all duration-300 ${
+                        currentSessionId === sess.id
+                          ? 'bg-accent-primary/10 border-accent-primary/30 text-text-primary'
+                          : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10 text-text-secondary'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <MessageSquare size={14} className={currentSessionId === sess.id ? "text-accent-primary shrink-0" : "text-text-muted shrink-0"} />
+                        <div className="text-xs font-medium truncate w-40" title={sess.title}>
+                          {sess.title}
+                        </div>
+                      </div>
+                      <button
+                        className="bg-transparent border-none text-text-muted cursor-pointer p-1 rounded hover:bg-red-500/10 hover:text-red-500 transition-all"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSession(sess.id);
+                        }}
+                        title="Delete conversation"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ))
             )}

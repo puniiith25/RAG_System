@@ -1,5 +1,5 @@
 import React from 'react';
-import { Send, MessageSquare, Layers, Search, Database } from 'lucide-react';
+import { Send, MessageSquare, Layers, Search, Database, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 export default function ChatContainer({
@@ -11,7 +11,8 @@ export default function ChatContainer({
   selectedMessage,
   handleSendMessage,
   openCitations,
-  chatEndRef
+  chatEndRef,
+  handleClearChat
 }) {
   return (
     <div className="flex-1 h-full flex flex-col relative">
@@ -25,12 +26,24 @@ export default function ChatContainer({
               : 'Awaiting knowledge base setup'}
           </span>
         </div>
-        {documents.length > 0 && (
-          <div className="flex items-center gap-2 text-xs text-text-secondary bg-white/[0.03] p-1.5 px-3 rounded-md border border-white/5">
-            <Database size={13} className="text-accent-secondary" />
-            <span>Vector Store Initialized</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {messages.length > 0 && (
+            <button
+              onClick={handleClearChat}
+              className="flex items-center gap-1.5 text-xs text-text-muted hover:text-red-400 bg-white/[0.02] hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 p-1.5 px-3 rounded-md cursor-pointer transition-all duration-300"
+              title="Clear entire chat history"
+            >
+              <Trash2 size={13} />
+              <span>Clear Chat</span>
+            </button>
+          )}
+          {documents.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-text-secondary bg-white/[0.03] p-1.5 px-3 rounded-md border border-white/5">
+              <Database size={13} className="text-accent-secondary" />
+              <span>Vector Store Initialized</span>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Message List */}

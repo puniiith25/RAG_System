@@ -11,6 +11,8 @@ function App() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -32,6 +34,7 @@ function App() {
         if (res.ok) {
           setBackendOnline(true);
           fetchDocs();
+          fetchSessions();
         } else {
           setBackendOnline(false);
         }
@@ -56,6 +59,72 @@ function App() {
     } catch (err) {
       console.error('Error fetching documents:', err);
     }
+  };
+
+  // Fetch chat sessions from backend
+  const fetchSessions = async () => {
+    try {
+      const res = await fetch(`${API_URL}/chat-sessions`);
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data);
+      }
+    } catch (err) {
+      console.error('Error fetching chat sessions:', err);
+    }
+  };
+
+  // Load messages for a session
+  const handleSelectSession = async (sessionId) => {
+    try {
+      const res = await fetch(`${API_URL}/chat-sessions/${sessionId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        const formatted = data.map(msg => ({
+          role: msg.role,
+          text: msg.text,
+          timestamp: msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : 'Just now'
+        }));
+        setMessages(formatted);
+        setCurrentSessionId(sessionId);
+        setSelectedMessage(null);
+        setCitationsPanelOpen(false);
+      }
+    } catch (err) {
+      console.error('Error loading session messages:', err);
+      triggerToast('error', 'Failed to load conversation.');
+    }
+  };
+
+  // Delete a chat session
+  const handleDeleteSession = async (sessionId) => {
+    try {
+      const res = await fetch(`${API_URL}/chat-sessions/${sessionId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        triggerToast('success', 'Conversation deleted.');
+        fetchSessions();
+        if (currentSessionId === sessionId) {
+          handleNewChat();
+        }
+      } else {
+        triggerToast('error', 'Failed to delete conversation.');
+      }
+    } catch (err) {
+      console.error('Error deleting chat session:', err);
+    }
+  };
+
+  // Start a new chat session
+  const handleNewChat = () => {
+    setMessages([]);
+    setCurrentSessionId(null);
+    setSelectedMessage(null);
+    setCitationsPanelOpen(false);
   };
 
   // Auto-scroll chat to bottom
@@ -193,32 +262,27 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          question: userQuery
+          question: userQuery,
+          session_id: currentSessionId
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-
         // Make sure ReactMarkdown ALWAYS receives a string
         let answerText = '';
 
         if (typeof data.answer === 'string') {
-          // Normal successful response
           answerText = data.answer;
-
         } else if (data.answer && typeof data.answer === 'object') {
-          // Backend returned an error object
           if (data.answer.success === false) {
-            answerText =
-              `⚠️ ${data.answer.error || 'AI answer generation is currently unavailable.'}`;
+            answerText = `⚠️ ${data.answer.error || 'AI answer generation is currently unavailable.'}`;
           } else if (typeof data.answer.answer === 'string') {
             answerText = data.answer.answer;
           } else {
             answerText = '⚠️ Unable to generate an answer.';
           }
-
         } else {
           answerText = '⚠️ Unable to generate an answer.';
         }
@@ -226,10 +290,7 @@ function App() {
         const assistantMsg = {
           role: 'assistant',
           text: answerText,
-          sources: Array.isArray(data.sources)
-            ? data.sources
-            : [],
-          geminiStatus: data.gemini_status || 'unknown',
+          sources: Array.isArray(data.sources) ? data.sources : [],
           timestamp: new Date().toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit'
@@ -238,13 +299,15 @@ function App() {
 
         setMessages(prev => [...prev, assistantMsg]);
 
+        // Save session_id and update sessions list if it was a new session
+        const isNewSession = !currentSessionId;
+        setCurrentSessionId(data.session_id);
+        if (isNewSession) {
+          fetchSessions();
+        }
+
       } else {
-
-        triggerToast(
-          'error',
-          data.detail || 'Failed to retrieve answers.'
-        );
-
+        triggerToast('error', data.detail || 'Failed to retrieve answers.');
         setMessages(prev => [
           ...prev,
           {
@@ -258,16 +321,9 @@ function App() {
           }
         ]);
       }
-
     } catch (err) {
-
       console.error('RAG search error:', err);
-
-      triggerToast(
-        'error',
-        'Could not communicate with RAG backend.'
-      );
-
+      triggerToast('error', 'Could not communicate with RAG backend.');
       setMessages(prev => [
         ...prev,
         {
@@ -280,7 +336,6 @@ function App() {
           })
         }
       ]);
-
     } finally {
       setIsSearching(false);
     }
@@ -312,6 +367,11 @@ function App() {
         handleDrop={handleDrop}
         handleUpload={handleUpload}
         handleDelete={handleDelete}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        handleSelectSession={handleSelectSession}
+        handleDeleteSession={handleDeleteSession}
+        handleNewChat={handleNewChat}
       />
 
       <main className="flex-1 h-full flex z-5 bg-black/10">
@@ -325,6 +385,7 @@ function App() {
           handleSendMessage={handleSendMessage}
           openCitations={openCitations}
           chatEndRef={chatEndRef}
+          handleClearChat={handleNewChat}
         />
 
         <CitationsPanel
