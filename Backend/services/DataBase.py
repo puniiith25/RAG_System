@@ -207,3 +207,73 @@ def delete_document(document_id):
             )
 
             conn.commit()
+
+
+def create_chat_session(title):
+    with DB_Connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO chat_sessions (title)
+                VALUES (%s)
+                RETURNING id
+                """,
+                (title,)
+            )
+            session_id = cur.fetchone()[0]
+            conn.commit()
+            return session_id
+
+
+def save_chat_message(session_id, role, text):
+    with DB_Connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO chat_messages (session_id, role, text)
+                VALUES (%s, %s, %s)
+                """,
+                (session_id, role, text)
+            )
+            conn.commit()
+
+
+def get_all_chat_sessions():
+    with DB_Connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, title, created_at
+                FROM chat_sessions
+                ORDER BY created_at DESC
+                """
+            )
+            return cur.fetchall()
+
+
+def get_chat_messages(session_id):
+    with DB_Connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT role, text, created_at
+                FROM chat_messages
+                WHERE session_id = %s
+                ORDER BY created_at ASC
+                """,
+                (session_id,)
+            )
+            return cur.fetchall()
+
+
+def delete_chat_session(session_id):
+    with DB_Connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM chat_sessions
+                WHERE id = %s
+                """,
+                (session_id,)
+            )
+            conn.commit()

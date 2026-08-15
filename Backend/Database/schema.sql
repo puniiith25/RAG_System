@@ -24,3 +24,17 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 
     embedding VECTOR(384)
 );
+
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
