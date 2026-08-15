@@ -120,35 +120,55 @@ async def Upload_PDF(file:UploadFile = File(...)):
 class QuestionRequest(BaseModel):
     question: str
 
-def generate_answers(question,results):
-    context = "\n\n".join(
-        results
-    )
+def generate_answers(question, results):
+    context = "\n\n".join(results)
+
     prompt = f"""
-    You are a PDF question-answering assistant.
-    Answer the user's question using ONLY the
-    information provided in the PDF context.
-    Do not use outside knowledge.
-    Give a concise answer.
-    If multiple documents provide relevant information,
-    combine them carefully.
-    If the answer is not available in the
-    provided context, say:
-    "I couldn't find the answer in the uploaded PDF."
-    PDF CONTEXT:
-    -------------------------
-    {context}
-    -------------------------
-    USER QUESTION:
-    {question}
-    """
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=prompt
-    )
-    return response.text
+You are a PDF question-answering assistant.
 
+Answer the user's question using ONLY the information provided
+in the PDF context below.
 
+Do not use outside knowledge.
+
+If the answer is not available in the context, say:
+"I couldn't find the answer in the uploaded PDF."
+
+Keep the answer concise and directly answer the question.
+
+PDF CONTEXT:
+-------------------------
+{context}
+-------------------------
+
+USER QUESTION:
+{question}
+"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.5-flash",
+            contents=prompt
+        )
+
+        return {
+            "success": True,
+            "answer": response.text,
+            "error": None
+        }
+
+    except Exception as e:
+        error_msg = str(e)
+
+        # Gemini API failed
+        print("Gemini API Error:", error_msg)
+
+        return {
+            "success": False,
+            "answer": None,
+            "error": "Gemini API is currently unavailable.",
+            "details": error_msg
+        }
 
 @app.post("/search")
 def search_pdf(request: QuestionRequest):

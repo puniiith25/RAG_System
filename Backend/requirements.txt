@@ -6,3 +6,5 @@ sentence-transformers
 psycopg
 psycopg-binary
 uvicorn
+langchain-text-splitters
+python-multipart

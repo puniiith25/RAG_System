@@ -5,7 +5,7 @@ import CitationsPanel from './components/CitationsPanel';
 import ToastAlert from './components/ToastAlert';
 import './App.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 function App() {
   const [backendOnline, setBackendOnline] = useState(false);
@@ -165,8 +165,10 @@ function App() {
   };
 
   // Send query
+  // Send query
   const handleSendMessage = async (e) => {
     e?.preventDefault();
+
     if (!inputMessage.trim() || isSearching) return;
 
     const userQuery = inputMessage.trim();
@@ -175,8 +177,12 @@ function App() {
     const userMsg = {
       role: 'user',
       text: userQuery,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     };
+
     setMessages(prev => [...prev, userMsg]);
     setIsSearching(true);
 
@@ -186,40 +192,95 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ question: userQuery }),
+        body: JSON.stringify({
+          question: userQuery
+        }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        const data = await res.json();
+
+        // Make sure ReactMarkdown ALWAYS receives a string
+        let answerText = '';
+
+        if (typeof data.answer === 'string') {
+          // Normal successful response
+          answerText = data.answer;
+
+        } else if (data.answer && typeof data.answer === 'object') {
+          // Backend returned an error object
+          if (data.answer.success === false) {
+            answerText =
+              `⚠️ ${data.answer.error || 'AI answer generation is currently unavailable.'}`;
+          } else if (typeof data.answer.answer === 'string') {
+            answerText = data.answer.answer;
+          } else {
+            answerText = '⚠️ Unable to generate an answer.';
+          }
+
+        } else {
+          answerText = '⚠️ Unable to generate an answer.';
+        }
+
         const assistantMsg = {
           role: 'assistant',
-          text: data.answer,
-          sources: data.sources || [],
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          text: answerText,
+          sources: Array.isArray(data.sources)
+            ? data.sources
+            : [],
+          geminiStatus: data.gemini_status || 'unknown',
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+          })
         };
+
         setMessages(prev => [...prev, assistantMsg]);
+
       } else {
-        triggerToast('error', 'Failed to retrieve answers. Ensure documents are uploaded.');
+
+        triggerToast(
+          'error',
+          data.detail || 'Failed to retrieve answers.'
+        );
+
         setMessages(prev => [
           ...prev,
           {
             role: 'assistant',
-            text: "⚠️ I encountered an error searching the knowledge base. Please check if you have uploaded any documents.",
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            text: '⚠️ I encountered an error while searching the knowledge base.',
+            sources: [],
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit'
+            })
           }
         ]);
       }
+
     } catch (err) {
-      console.error(err);
-      triggerToast('error', 'Could not communicate with RAG backend.');
+
+      console.error('RAG search error:', err);
+
+      triggerToast(
+        'error',
+        'Could not communicate with RAG backend.'
+      );
+
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          text: "⚠️ Unable to connect to the RAG backend server. Please verify it is running on port 8080.",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          text: `⚠️ Unable to connect to the RAG backend server. Please verify it is running at ${API_URL}.`,
+          sources: [],
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+          })
         }
       ]);
+
     } finally {
       setIsSearching(false);
     }
